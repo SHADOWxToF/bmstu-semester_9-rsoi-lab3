@@ -265,7 +265,7 @@ def get_persons(x_user_name: str = Header()) -> UserInfoResponse:
         for ticket in rawTickets:
 
             if circuitBreaker.isBlocked(flightsHost):
-                try:
+                try: 
                     response = reqSession.get(f"http://{flightsAPI}/flights/{ticket.flightNumber}")
                 except requests.ConnectionError:
                     circuitBreaker.append(flightsHost)
