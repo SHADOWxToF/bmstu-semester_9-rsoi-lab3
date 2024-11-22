@@ -37,10 +37,12 @@ async def lifespan(app: FastAPI):
     try:
         reqSession.post(f"http://{flightsHost}/manage/init")
     except:
+        requestManager.append(lambda: reqSession.post(f"http://{flightsHost}/manage/init"))
         print(f"http://{flightsHost} is not available")
     try:
         reqSession.post(f"http://{bonusesHost}/manage/init")
     except:
+        requestManager.append(lambda: reqSession.post(f"http://{bonusesHost}/manage/init"))
         print(f"http://{bonusesHost} is not available")
     yield
     circuitBreaker.terminate()
