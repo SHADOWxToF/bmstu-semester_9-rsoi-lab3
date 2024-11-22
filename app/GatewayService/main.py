@@ -16,7 +16,7 @@ from CircuitBreaker import CircuitBreaker
 from RequestsQueue import RequestsQueueManager
 
 requestManager = RequestsQueueManager()
-circuitBreaker = CircuitBreaker(1, 10)
+circuitBreaker = CircuitBreaker(1, 1)
 
 
 reqSession = requests.Session()
