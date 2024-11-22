@@ -9,12 +9,83 @@ services:
       POSTGRES_PASSWORD: "postgres"
       POSTGRES_DB: postgres
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - ./db-data:/var/lib/postgresql/data
       - ./postgres/:/docker-entrypoint-initdb.d/
     ports:
       - "5432:5432"
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U program -d privileges"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  
+  flights:
+    depends_on: 
+      postgres:
+        condition: service_healthy
+    container_name: flights
+    restart: on-failure
+    build:
+      dockerfile: ./app/FlightService/Dockerfile
+      args:
+        database_url: "postgresql://program:test@postgres:5432/flights"
+    ports:
+      - "8060:8060"
+    networks:
+      - app
+  
+  bonuses:
+    depends_on: 
+      postgres:
+        condition: service_healthy
+    container_name: bonuses
+    restart: on-failure
+    build:
+      dockerfile: ./app/BonusService/Dockerfile
+      args:
+        database_url: "postgresql://program:test@postgres:5432/privileges"
+    ports:
+      - "8050:8050"
+    networks:
+      - app
+  
+  tickets:
+    depends_on: 
+      postgres:
+        condition: service_healthy
+    container_name: tickets
+    restart: on-failure
+    build:
+      dockerfile: ./app/TicketService/Dockerfile
+      args:
+        database_url: "postgresql://program:test@postgres:5432/tickets"
+    ports:
+      - "8070:8070"
+    networks:
+      - app
+  
+  gateway:
+    depends_on: 
+      - postgres
+      - bonuses
+      - flights
+      - tickets
+    container_name: gateway
+    restart: on-failure
+    build:
+      dockerfile: ./app/GatewayService/Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - app
 
 # TODO добавить сервисы
+
+networks:
+  app:
 
 volumes:
   db-data:
