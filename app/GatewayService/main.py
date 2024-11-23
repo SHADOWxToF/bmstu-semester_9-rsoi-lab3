@@ -16,7 +16,7 @@ from CircuitBreaker import CircuitBreaker
 from RequestsQueue import RequestsQueueManager
 
 requestManager = RequestsQueueManager()
-circuitBreaker = CircuitBreaker(1, 1)
+circuitBreaker = CircuitBreaker(2, 1)
 
 
 reqSession = requests.Session()
@@ -61,6 +61,7 @@ def get_persons(page: int, size: int) -> PaginationResponse:
     if circuitBreaker.isBlocked(flightsHost):
         try:
             response = reqSession.get(f"http://{flightsAPI}/flights", params={"page": page, "size": size})
+            circuitBreaker.appendOK(flightsHost)
         except requests.ConnectionError as ex:
             print(ex)
             circuitBreaker.append(flightsHost)
@@ -79,6 +80,7 @@ def get_persons(x_user_name: str = Header()) -> list[TicketResponse]:
     if circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.get(f"http://{ticketsAPI}/tickets/", params={"user_name": x_user_name})
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             return JSONResponse(content={"message": "Ticket Service unavailable"}, status_code=503)
@@ -91,6 +93,7 @@ def get_persons(x_user_name: str = Header()) -> list[TicketResponse]:
             if circuitBreaker.isBlocked(flightsHost):
                 try:
                     response = reqSession.get(f"http://{flightsAPI}/flights/{ticket.flightNumber}")
+                    circuitBreaker.appendOK(flightsHost)
                 except requests.ConnectionError:
                     circuitBreaker.append(flightsHost)
                     out.append(TicketResponse(ticketUid=ticket.ticketUid, status=ticket.status, flightNumber=ticket.flightNumber, fromAirport="", toAirport="", data=""))
@@ -111,6 +114,7 @@ def get_persons(ticketPurchaseRequest: TicketPurchaseRequest, x_user_name: str =
     if circuitBreaker.isBlocked(flightsHost):
         try:
             response = reqSession.get(f"http://{flightsAPI}/flights/{ticketPurchaseRequest.flightNumber}")
+            circuitBreaker.appendOK(flightsHost)
         except requests.ConnectionError:
             circuitBreaker.append(flightsHost)
             return JSONResponse(content={"message": "Flight Service unavailable"}, status_code=503)
@@ -124,6 +128,7 @@ def get_persons(ticketPurchaseRequest: TicketPurchaseRequest, x_user_name: str =
     if circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.post(f"http://{ticketsAPI}/tickets/", json=jsonable_encoder(TicketDataJSON(username=x_user_name, flightNumber=ticketPurchaseRequest.flightNumber, price=ticketPurchaseRequest.price)))
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             return JSONResponse(content={"message": "Ticket Service unavailable"}, status_code=503)
@@ -141,11 +146,13 @@ def get_persons(ticketPurchaseRequest: TicketPurchaseRequest, x_user_name: str =
             if response.status_code != HTTPStatus.ACCEPTED:
                 return JSONResponse(content={"message": "Bonus Service unavailable"}, status_code=503)
             payment: PaymentDataJSON = PaymentDataJSON(**response.json())
+            circuitBreaker.appendOK(bonusesHost)
         except requests.ConnectionError:
             circuitBreaker.append(bonusesHost)
             if circuitBreaker.isBlocked(ticketsHost):
                 try:
                     response = reqSession.delete(f"http://{ticketsAPI}/tickets/{ticket.ticketUid}")
+                    circuitBreaker.appendOK(ticketsHost)
                 except requests.ConnectionError:
                     circuitBreaker.append(ticketsHost)
                     requestManager.append(lambda: requests.delete(f"http://{ticketsAPI}/tickets/{ticket.ticketUid}"))
@@ -155,6 +162,7 @@ def get_persons(ticketPurchaseRequest: TicketPurchaseRequest, x_user_name: str =
     elif circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.delete(f"http://{ticketsAPI}/tickets/{ticket.ticketUid}")
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             requestManager.append(lambda: requests.delete(f"http://{ticketsAPI}/tickets/{ticket.ticketUid}"))
@@ -166,6 +174,7 @@ def get_persons(ticketPurchaseRequest: TicketPurchaseRequest, x_user_name: str =
     if circuitBreaker.isBlocked(bonusesHost):
         try:
             response = reqSession.get(f"http://{bonusesAPI}/bonuses/{x_user_name}")
+            circuitBreaker.appendOK(bonusesHost)
             if response.status_code != HTTPStatus.OK:
                 privilege = PrivilegeDataJSON(balance=0, status="")
             privilege = PrivilegeDataJSON(**response.json())
@@ -192,6 +201,7 @@ def get_persons(ticketUid: str, x_user_name: str = Header()) -> TicketResponse:
     if circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.get(f"http://{ticketsAPI}/tickets/", params={"user_name": x_user_name})
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             return JSONResponse(content={"message": "Ticket Service unavailable"}, status_code=503)
@@ -207,6 +217,7 @@ def get_persons(ticketUid: str, x_user_name: str = Header()) -> TicketResponse:
             if circuitBreaker.isBlocked(flightsHost):
                 try:
                     response = reqSession.get(f"http://{flightsAPI}/flights/{ticket.flightNumber}")
+                    circuitBreaker.appendOK(flightsHost)
                 except requests.ConnectionError:
                     circuitBreaker.append(flightsHost)
                     return TicketResponse(ticketUid=ticket.ticketUid, status=ticket.status, flightNumber=ticket.flightNumber, fromAirport="", toAirport="", data="")
@@ -226,6 +237,7 @@ def get_persons(ticketUid: str, x_user_name: str = Header()):
     if circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.put(f"http://{ticketsAPI}/tickets/{ticketUid}")
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             return JSONResponse(content={"message": "Ticket Service unavailable"}, status_code=503)
@@ -240,6 +252,7 @@ def get_persons(ticketUid: str, x_user_name: str = Header()):
     if circuitBreaker.isBlocked(bonusesHost):
         try:
             response = reqSession.post(f"http://{bonusesAPI}/bonuses/cancel", json=jsonable_encoder(CancelTicketJSON(name=x_user_name, ticketUid=ticketUid)))
+            circuitBreaker.appendOK(bonusesHost)
             if response.status_code != HTTPStatus.ACCEPTED:
                 return JSONResponse(content={"message": "User or ticket not found"}, status_code=404)
         except:
@@ -255,6 +268,7 @@ def get_persons(x_user_name: str = Header()) -> UserInfoResponse:
     if circuitBreaker.isBlocked(ticketsHost):
         try:
             response = reqSession.get(f"http://{ticketsAPI}/tickets/", params={"user_name": x_user_name})
+            circuitBreaker.appendOK(ticketsHost)
         except requests.ConnectionError:
             circuitBreaker.append(ticketsHost)
             return JSONResponse(content={"message": "Ticket Service unavailable"}, status_code=503)
@@ -269,6 +283,7 @@ def get_persons(x_user_name: str = Header()) -> UserInfoResponse:
             if circuitBreaker.isBlocked(flightsHost):
                 try: 
                     response = reqSession.get(f"http://{flightsAPI}/flights/{ticket.flightNumber}")
+                    circuitBreaker.appendOK(flightsHost)
                 except requests.ConnectionError:
                     circuitBreaker.append(flightsHost)
                     tickets.append(TicketResponse(ticketUid=ticket.ticketUid, status=ticket.status, flightNumber=ticket.flightNumber, fromAirport="", toAirport="", data=""))
@@ -282,6 +297,7 @@ def get_persons(x_user_name: str = Header()) -> UserInfoResponse:
     if circuitBreaker.isBlocked(bonusesHost):
         try:
             response = reqSession.get(f"http://{bonusesAPI}/bonuses/{x_user_name}")
+            circuitBreaker.appendOK(bonusesHost)
         except requests.ConnectionError:
             circuitBreaker.append(bonusesHost)
             return UserInfoResponse(tickets=tickets, privilege={})
@@ -298,6 +314,7 @@ def get_persons(x_user_name: str = Header()) -> PrivilegeInfoResponse:
     if circuitBreaker.isBlocked(bonusesHost):
         try:
             response = reqSession.get(f"http://{bonusesAPI}/history/{x_user_name}")
+            circuitBreaker.appendOK(bonusesHost)
         except requests.ConnectionError:
             circuitBreaker.append(bonusesHost)
             return JSONResponse(content={"message": "Bonus Service unavailable"}, status_code=503)
